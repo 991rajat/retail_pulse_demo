@@ -8,6 +8,8 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -27,6 +29,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "------------>";
     private Button analyze;
     private ImageView imageView;
+    String image_path = "";
     Boolean userSelectedImage = false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -102,19 +105,20 @@ public class MainActivity extends AppCompatActivity {
                     userSelectedImage = true;
 
                     Uri selectedImage = data.getData();
+
                     String[] filePath = {MediaStore.Images.Media.DATA};
                     Log.e(TAG, filePath.toString());
                     // content resolver helps us to get the access of different content providers
-//                    Cursor cursor = this.getContentResolver().query(selectedImage, filePath, null, null, null);
-//                    if (cursor != null) {
-//                        cursor.moveToFirst();
-//                        int columnIndexedValue = cursor.getColumnIndex(filePath[0]);
-//                        String picturePath = cursor.getString(columnIndexedValue);
-//                        cursor.close();
-//                        image_path = picturePath;
-//                        Log.e(TAG, "PIC PATH :" + picturePath);
-//                        Glide.with(this).load(picturePath).into(imageView);
-//                    }
+                    Cursor cursor = this.getContentResolver().query(selectedImage, filePath, null, null, null);
+                    if (cursor != null) {
+                        cursor.moveToFirst();
+                        int columnIndexedValue = cursor.getColumnIndex(filePath[0]);
+                        String picturePath = cursor.getString(columnIndexedValue);
+                        cursor.close();
+                        image_path = picturePath;
+                        Log.e(TAG, "PIC PATH :" + picturePath);
+                        //Glide.with(this).load(picturePath).into(imageView);
+                     }
                     break;
                 }
                 case RESET_VIEWS: {
@@ -124,5 +128,42 @@ public class MainActivity extends AppCompatActivity {
 
         }
     }
+
+
+    void ScaleDown()
+    {
+        if(userSelectedImage)
+        {
+            BitmapFactory.Options bmOptions = new BitmapFactory.Options();
+            Bitmap bitmap = BitmapFactory.decodeFile(image_path,bmOptions);
+            bitmap = Bitmap.createScaledBitmap(bitmap,300,300,false);
+
+
+            int width = bitmap.getWidth(); // 获取位图的宽
+            int height = bitmap.getHeight(); // 获取位图的高
+
+            int[] pixels = new int[width * height]; // 通过位图的大小创建像素点数组
+
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+            int alpha = 0xFF << 24;
+            for (int i = 0; i < height; i++) {
+                for (int j = 0; j < width; j++) {
+                    int grey = pixels[width * i + j];
+
+                    int red = ((grey & 0x00FF0000) >> 16);
+                    int green = ((grey & 0x0000FF00) >> 8);
+                    int blue = (grey & 0x000000FF);
+
+                    grey = (int) ((float) red * 0.3 + (float) green * 0.59 + (float) blue * 0.11);
+                    grey = alpha | (grey << 16) | (grey << 8) | grey;
+                    pixels[width * i + j] = grey;
+                }
+            }
+            Bitmap result = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
+            result.setPixels(pixels, 0, width, 0, 0, width, height);
+
+        }
+    }
+
 
 }
