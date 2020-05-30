@@ -29,6 +29,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
@@ -65,6 +66,7 @@ public class MainActivity extends AppCompatActivity {
         imgData = ByteBuffer.allocateDirect(4*DIM_IMG_SIZE_X * DIM_IMG_SIZE_Y * DIM_PIXEL_SIZE);
         intValues = new int[DIM_IMG_SIZE_X * DIM_IMG_SIZE_Y];
         floatValues = new float[DIM_PIXEL_SIZE*DIM_IMG_SIZE_Y*DIM_IMG_SIZE_X*4];
+        imgData.order(ByteOrder.nativeOrder());
         try {
             tflite = new Interpreter(loadModelFile());
             loadLabelsandVectors();
@@ -105,8 +107,9 @@ public class MainActivity extends AppCompatActivity {
                     // Make Network Request
                     output = new float[1][16];
                     ScaleDown();
-                    Log.d(TAG, "onClick: "+Arrays.deepToString(new ByteBuffer[]{imgData}));
-                    Log.d(TAG, "onClick: "+ Arrays.deepToString(output));
+//                    String val = new String(imgData.array());
+//                    Log.d(TAG, "onClick: "+Arrays.toString(imgData.array()));
+//                    Log.d(TAG, "onClick: "+ Arrays.deepToString(output));
                     tflite.run(imgData,output);
                     Log.d(TAG, "onClick: "+ Arrays.deepToString(output));
                     compute();
@@ -247,16 +250,16 @@ public class MainActivity extends AppCompatActivity {
                 final int val = intValues[pixel++];
                 // get rgb values from intValues where each int holds the rgb values for a pixel.
                 // if quantized, convert each rgb value to a byte, otherwise to a float
-                if(i==150&&j==150)
-                    Log.d(TAG, "convertBitmapToByteBuffer: "+(((val >> 16) & 0xFF)/255f +" "+(((val >> 8) & 0xFF)/255f) +" "+((val & 0xFF)/255f)));
-//                    imgData.putFloat( (((val >> 16) & 0xFF)/255f));
-//                    imgData.putFloat( (((val >> 8) & 0xFF)/255f));
-//                    imgData.putFloat( ((val & 0xFF)/255f));
-                imgData.putFloat(0);
-                imgData.putFloat( 0);
-                imgData.putFloat( 0);
 
+//                    Log.d(TAG, "convertBitmapToByteBuffer: "+(((val >> 16) & 0xFF) +" "+(((val >> 8) & 0xFF)) +" "+((val & 0xFF))));
 
+                float red = (((val >> 16) & 0xFF))/255.0f;
+                float green = (((val >> 8) & 0xFF))/255.0f;
+                float blue = ((val & 0xFF))/255.0f;
+                    //Log.d(TAG, "convertBitmapToByteBuffer: "+red +" "+green +" "+blue);
+                    imgData.putFloat(red);
+                    imgData.putFloat((green));
+                    imgData.putFloat(blue);
             }
         }
 
