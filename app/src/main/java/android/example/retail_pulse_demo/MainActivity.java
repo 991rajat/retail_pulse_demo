@@ -24,11 +24,16 @@ import android.widget.Toast;
 import org.tensorflow.lite.Interpreter;
 
 
+import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -49,6 +54,8 @@ public class MainActivity extends AppCompatActivity {
     private ByteBuffer imgData = null;
     private float[][] output;
     private float[] floatValues;
+    private int[] labelList;
+    private double[][] vectorList;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -60,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
         floatValues = new float[DIM_PIXEL_SIZE*DIM_IMG_SIZE_Y*DIM_IMG_SIZE_X*4];
         try {
             tflite = new Interpreter(loadModelFile());
+            loadLabelsandVectors();
             Log.d(TAG, "onCreate: Model Loaded Successfully");
         } catch (IOException e) {
             e.printStackTrace();
@@ -97,16 +105,46 @@ public class MainActivity extends AppCompatActivity {
                     // Make Network Request
                     output = new float[1][16];
                     ScaleDown();
-                    Log.d(TAG, "onClick: "+imgData.toString());
+                    Log.d(TAG, "onClick: "+Arrays.deepToString(new ByteBuffer[]{imgData}));
+                    Log.d(TAG, "onClick: "+ Arrays.deepToString(output));
                     tflite.run(imgData,output);
-                    Log.d(TAG, "onClick: "+output.toString());
-                    for(int i=0;i<16;i++)
-                        Log.d(TAG, "onClick: "+output[0][i]);
+                    Log.d(TAG, "onClick: "+ Arrays.deepToString(output));
+                    compute();
                 } else {
                     Toast.makeText(MainActivity.this, "No Image Selected", Toast.LENGTH_SHORT).show();
                 }
             }
         });
+    }
+
+    private void compute() {
+        double Maxsum= Double.MAX_VALUE;
+        int Index=-1;
+        for(int i=0;i<32;i++)
+        {
+            double sum=0;
+            for(int j=0;j<16;j++)
+            {
+                sum+=Math.pow((vectorList[i][j]-output[0][j]),2.0);
+            }
+            sum=Math.sqrt(sum);
+            //Log.d(TAG, "Sum MAX: "+sum+" "+Maxsum);
+            if(sum<Maxsum)
+            {
+                Maxsum=sum;
+                Index = i;
+                //Log.d(TAG, "compute: "+labelList[Index]);
+            }
+        }
+        Log.d(TAG, "compute: "+labelList[Index]);
+        String ans="";
+        if(labelList[Index]==0)
+            ans="Rock";
+        else if(labelList[Index]==1)
+            ans="Paper";
+        else
+            ans="Scissor";
+        Toast.makeText(this, "Hand is "+ans, Toast.LENGTH_LONG).show();
     }
 
     @Override
@@ -125,7 +163,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // handling result of pick image and going back from result activity to main activity
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -140,7 +178,7 @@ public class MainActivity extends AppCompatActivity {
 
                     String[] filePath = {MediaStore.Images.Media.DATA};
                     Log.e(TAG, filePath.toString());
-                    // content resolver helps us to get the access of different content providers
+
                     Cursor cursor = this.getContentResolver().query(selectedImage, filePath, null, null, null);
                     if (cursor != null) {
                         cursor.moveToFirst();
@@ -149,7 +187,7 @@ public class MainActivity extends AppCompatActivity {
                         cursor.close();
                         image_path = picturePath;
                         Log.e(TAG, "PIC PATH :" + picturePath);
-                        //Glide.with(this).load(picturePath).into(imageView);
+
                      }
                     break;
                 }
@@ -184,14 +222,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public Bitmap getResizedBitmap(Bitmap bm, int newWidth, int newHeight) {
-        int width = bm.getWidth();
-        int height = bm.getHeight();
-        float scaleWidth = ((float) newWidth) / width;
-        float scaleHeight = ((float) newHeight) / height;
-        Matrix matrix = new Matrix();
-        matrix.postScale(scaleWidth, scaleHeight);
-        Bitmap resizedBitmap = Bitmap.createBitmap(
-                bm, 0, 0, width, height, matrix, false);
+//        int width = bm.getWidth();
+//        int height = bm.getHeight();
+//        float scaleWidth = ((float) newWidth) / width;
+//        float scaleHeight = ((float) newHeight) / height;
+//        Matrix matrix = new Matrix();
+//        matrix.postScale(scaleWidth, scaleHeight);
+        Bitmap resizedBitmap = Bitmap.createScaledBitmap(bm, newWidth, newHeight, false);
 
         return resizedBitmap;
     }
@@ -210,22 +247,49 @@ public class MainActivity extends AppCompatActivity {
                 final int val = intValues[pixel++];
                 // get rgb values from intValues where each int holds the rgb values for a pixel.
                 // if quantized, convert each rgb value to a byte, otherwise to a float
-                    imgData.putFloat( (((val >> 16) & 0xFF)/255f));
-                    imgData.putFloat( (((val >> 8) & 0xFF)/255f));
-                    imgData.putFloat( ((val & 0xFF)/255f));
+                if(i==150&&j==150)
+                    Log.d(TAG, "convertBitmapToByteBuffer: "+(((val >> 16) & 0xFF)/255f +" "+(((val >> 8) & 0xFF)/255f) +" "+((val & 0xFF)/255f)));
+//                    imgData.putFloat( (((val >> 16) & 0xFF)/255f));
+//                    imgData.putFloat( (((val >> 8) & 0xFF)/255f));
+//                    imgData.putFloat( ((val & 0xFF)/255f));
+                imgData.putFloat(0);
+                imgData.putFloat( 0);
+                imgData.putFloat( 0);
 
 
             }
         }
 
+    }
 
-//        for (int i = 0; i < intValues.length; ++i) {
-//            final int val = intValues[i];
-//
-//            floatValues[i * 3 + 0] = ((val >> 16) & 0xFF)/255f;
-//            floatValues[i * 3 + 1] = ((val >> 8) & 0xFF)/255f;
-//            floatValues[i * 3 + 2] = (val & 0xFF)/255f;
-//        }
+    void loadLabelsandVectors() throws IOException {
+        labelList = new int[32];
+        int k=0;
+        BufferedReader reader =
+                new BufferedReader(new InputStreamReader(this.getAssets().open("labels.txt")));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            labelList[k]=Integer.parseInt(line.trim());
+            //Log.d(TAG, "loadLabelsandVectors: "+labelList[k]);
+            k++;
+        }
+        reader.close();
+
+        vectorList = new double[32][16];
+        k=0;
+        BufferedReader reader2 =
+                new BufferedReader(new InputStreamReader(this.getAssets().open("vectors.txt")));
+        String line2;
+        while((line2 = reader2.readLine())!=null)
+        {
+            String[] tokens = line2.trim().split("\\s+");
+            for(int i=0;i<16;i++) {
+                vectorList[k][i] = Double.parseDouble(tokens[i]);
+                //Log.d(TAG, "loadLabelsandVectors: "+vectorList[k][i]);
+            }
+            k++;
+        }
+
     }
 
 
